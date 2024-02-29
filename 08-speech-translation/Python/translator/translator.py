@@ -3,6 +3,7 @@ from datetime import datetime
 import os
 
 # Import namespaces
+import azure.cognitiveservices.speech as speech_sdk
 
 
 def main():
@@ -16,10 +17,15 @@ def main():
         cog_region = os.getenv('COG_SERVICE_REGION')
 
         # Configure translation
-
+        translation_config = speech_sdk.translation.SpeechTranslationConfig(subscription=cog_key, region=cog_region)
+        translation_config.speech_recognition_language = 'en-US'
+        translation_config.add_target_language('fr')
+        translation_config.add_target_language('es')
+        translation_config.add_target_language('hi')
+        print(f'Ready to translate from {translation_config.speech_recognition_language}')
 
         # Configure speech
-
+        speech_config = speech_sdk.SpeechConfig(subscription=cog_key, region=cog_region)
 
         # Get user input
         targetLanguage = ''
@@ -38,10 +44,33 @@ def Translate(targetLanguage):
     translation = ''
 
     # Translate speech
+    audio_config = speech_sdk.AudioConfig(use_default_microphone=True)
+    translator = speech_sdk.translation.TranslationRecognizer(translation_config=translation_config, audio_config=audio_config)
 
+    print('Speak now....')
+
+    result = translator.recognize_once_async().get()
+
+    print(f'Translating "{result.text}"')
+
+    translation = result.translations[targetLanguage]
+
+    print(translation)
 
     # Synthesize translation
 
+    voices = {
+        "fr": "fr-FR-HenriNeural",
+        "es": "es-ES-ElviraNeural",
+        "hi": "hi-IN-MadhurNeural"
+    }
+
+    speech_config.speech_synthesis_voice_name = voices.get(targetLanguage)
+    speech_synthesizer = speech_sdk.SpeechSynthesizer(speech_config=speech_config)
+    speak = speech_synthesizer.speak_text_async(translation).get()
+
+    if speak.reason != speech_sdk.ResultReason.SynthesizingAudioCompleted:
+        print(speak.reason)
 
 
 if __name__ == "__main__":
